@@ -1,129 +1,50 @@
 # RFC-0003 — Layered Architecture
 
-**Status:** Draft  
-**Category:** 000-overview  
-**Specification:** AI Resource Platform Specification (ARPS)  
+**Status:** Draft
+**Category:** 000-overview
+**Specification:** AI Resource Platform Specification (ARPS)
 **Version:** 1.0.0
+**Requires:** RFC-0100, RFC-0200
 
 ---
 
-## 1. Abstract
+## Abstract
+Định nghĩa các tầng nền tảng: Specification, Metadata, Resource, Runtime, Adapter, Distribution, Governance.
 
-Defines platform layers: Specification, Metadata, Resource, Runtime, Adapter, Distribution and Governance.
+The key words MUST, SHOULD, MAY… are to be interpreted as described in RFC 2119.
 
-## 2. Motivation
-
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
-
-## 3. Goals
-
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
-
-## 4. Non-Goals
-
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
-
-## 5. Canonical Model
-
-Every platform object SHOULD be represented as a canonical resource:
-
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
-
-## 6. Required Behavior
-
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
-
-## 7. Runtime Flow
-
+## 1. Layers
 ```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
+Governance
+Distribution
+Adapter
+Runtime
+Resource
+Metadata
+Specification
 ```
 
-## 8. Validation Rules
+## 2. Layer responsibilities
+| Tầng | Trách nhiệm | RFC phủ | Phụ thuộc cho phép |
+|---|---|---|---|
+| Specification | Định nghĩa contract/đặc tả, từ vựng, nguyên tắc | RFC-0000..0007 | (đáy) |
+| Metadata | Mô hình metadata: identity, ownership, discovery, compat | RFC-0102 | Specification |
+| Resource | Canonical model, manifest, lifecycle, dependency graph | RFC-0100..0107 | Metadata |
+| Runtime | Engine: discovery→…→packaging | RFC-0200..0209 | Resource |
+| Adapter | Biến đổi resource → output đích | RFC-0500, RFC-0700 | Runtime |
+| Distribution | Build, package, registry, marketplace | RFC-0400..0403 | Runtime |
+| Governance | Ownership, review, policy, security | RFC-0800..0802 | tất cả tầng dưới |
 
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
+## 3. Dependency rule (normative)
+- Một tầng MUST chỉ phụ thuộc các tầng BÊN DƯỚI nó.
+- Một tầng MUST NOT phụ thuộc (reach up) tầng bên trên.
+- Đây là nguồn sự thật cho quy tắc phân tầng; RFC khác trỏ tới mục này.
 
-## 9. Error Model
+## 4. Mapping tầng ↔ engine ↔ category
+- Runtime ↔ các engine [RFC-0200](../300-runtime/RFC-0200-Runtime-Architecture.md).
+- Distribution ↔ build/pipeline [RFC-0400](../500-build-distribution/RFC-0400-Build-Pipeline.md).
+- Governance ↔ [RFC-0802](../900-security-governance/RFC-0802-Governance.md).
 
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
-
-```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
-```
-
-## 13. Migration Guidance
-
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+## References
+- [RFC-0100 — Canonical Resource Model](../200-resource-model/RFC-0100-Canonical-Resource-Model.md)
+- [RFC-0200 — Runtime Architecture](../300-runtime/RFC-0200-Runtime-Architecture.md)
