@@ -1,0 +1,8 @@
+apiVersion: string
+kind: string
+metadata:
+  id: string
+  name: string
+  version: string
+spec: object
+status: object

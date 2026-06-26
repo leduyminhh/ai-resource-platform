@@ -1,0 +1,10 @@
+apiVersion: platform/v1
+kind: Skill
+metadata:
+  id: core/clean-code
+  name: clean-code
+  version: 1.0.0
+spec:
+  dependencies: []
+status:
+  lifecycle: Published

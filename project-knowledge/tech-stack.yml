@@ -1,0 +1,34 @@
+# Stack hiện thực CHƯA chốt — đây là chủ đích, không phải thiếu sót.
+# RFC-0000 §4 (Non-Goals): ARPS KHÔNG bắt buộc một ngôn ngữ lập trình cụ thể;
+# tools/validator hiện mới là README placeholder. Điền language/framework/datastore khi đội
+# chọn ngôn ngữ cho reference runtime + validator/CLI (RFC-0000 §14 Future Work).
+language:
+  - name: <chưa chốt>
+    version: <chưa chốt>
+frameworks:
+  - name: <chưa chốt>
+    version: <chưa chốt>
+libraries:
+  - name: <chưa chốt>
+    version: <chưa chốt>
+datastore:
+  # ARPS thao tác trên file resource; persistence DB chưa được đặc tả (Non-Goal).
+  - type: <chưa chốt — hiện là filesystem/registry, không phải DB>
+    version: <na>
+
+# Phần ĐÃ chốt trong đặc tả (nguồn: docs/ + schemas/):
+serialization:
+  formats: [YAML, JSON]            # RFC-0101
+schema:
+  standard: JSON Schema draft 2020-12   # schemas/resource.schema.json
+  files: [schemas/resource.schema.json, schemas/resource.schema.yaml]
+versioning:
+  scheme: SemVer                   # RFC-0005
+api_version: platform/v1           # RFC-0100
+
+tooling:
+  build: <chưa chốt>
+  test: <chưa chốt>
+  lint: <chưa chốt>
+  ci: <chưa chốt>
+runtime: <chưa chốt — reference runtime là Future Work, RFC-0000 §14>

@@ -1,0 +1,14 @@
+apiVersion: platform/v1
+kind: Workflow
+metadata:
+  id: workflows/build
+  name: build
+  version: 1.0.0
+spec:
+  steps:
+    - discover
+    - validate
+    - resolve
+    - plan
+    - execute
+    - package

@@ -1,0 +1,11 @@
+apiVersion: platform/v1
+kind: Plugin
+metadata:
+  id: plugins/backend
+  name: backend
+  version: 1.0.0
+spec:
+  dependencies:
+    - id: core/clean-code
+      kind: Skill
+      version: ^1.0.0
