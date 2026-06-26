@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Kiem tra tinh nhat quan cum RFC 000-overview.
+set -u
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OV="$ROOT/docs/000-overview"
+fail=0
+err() { echo "FAIL: $*"; fail=1; }
+
+# --- Check 1: Link integrity (moi link .md tuong doi phai ton tai) ---
+while IFS= read -r line; do
+  file="${line%%::*}"; link="${line#*::}"
+  dir="$(dirname "$file")"
+  target="$(cd "$dir" 2>/dev/null && cd "$(dirname "$link")" 2>/dev/null && echo "$(pwd)/$(basename "$link")")"
+  [ -f "$target" ] || err "broken link in $file -> $link"
+done < <(grep -rEo '\]\([^)]+\.md[^)]*\)' "$OV" "$ROOT/docs/decisions/0003-rfc-authoring-convention.md" 2>/dev/null \
+          | sed -E 's/^([^:]+):.*\(([^)#]+)(#[^)]*)?\)/\1::\2/')
+
+# --- Check 4: Header conformance ---
+for f in "$OV"/RFC-*.md; do
+  for field in '\*\*Status:\*\*' '\*\*Category:\*\*' '\*\*Specification:\*\*' '\*\*Version:\*\*'; do
+    grep -qE "$field" "$f" || err "missing header field ${field//\\/} in $(basename "$f")"
+  done
+done
+
+# --- Check 2: De-dup (heading boilerplate da go khoi 0001..0004) ---
+for n in 0001 0002 0003 0004; do
+  f="$(ls "$OV"/RFC-$n-*.md 2>/dev/null)"
+  [ -z "$f" ] && continue
+  for bad in 'Runtime Flow' 'Error Model' 'Migration Guidance' 'Future Work' 'Required Behavior'; do
+    grep -qE "^#+ .*$bad" "$f" && err "boilerplate heading '$bad' still in $(basename "$f")"
+  done
+done
+# Future Work CHI duoc phep o RFC-0000
+grep -qE '^#+ .*Future Work' "$OV"/RFC-0000-*.md || err "RFC-0000 should keep a Future Work/Roadmap section"
+
+# --- Check 3: Terminology coverage (core term phai co trong RFC-0001) ---
+TERM="$(ls "$OV"/RFC-0001-*.md 2>/dev/null)"
+if [ -n "$TERM" ]; then
+  for t in Resource Kind Manifest Metadata Registry Resolver Planner Executor Adapter Artifact Package; do
+    grep -qE "\b$t\b" "$TERM" || err "term '$t' missing from RFC-0001 glossary"
+  done
+fi
+
+[ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
+exit "$fail"
