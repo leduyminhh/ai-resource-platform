@@ -180,5 +180,61 @@ if [ -f "$MIGRATION" ]; then
     grep -q "$phrase" "$MIGRATION" || err "missing RFC-0901 phrase '$phrase'"
   done
 fi
+# --- Check 11: Foundation rules ownership (RFC-0005, RFC-0006, RFC-0104) ---
+VERSIONING="$ROOT/docs/100-foundation/RFC-0005-Versioning.md"
+NAMING="$ROOT/docs/100-foundation/RFC-0006-Naming-Convention.md"
+DEPENDENCY_GRAPH="$ROOT/docs/200-resource-model/RFC-0104-Dependency-Graph.md"
+
+check_foundation_header() {
+  local file="$1"
+  local label="$2"
+  for field in '\*\*Status:\*\*' '\*\*Category:\*\*' '\*\*Specification:\*\*' '\*\*Version:\*\*'; do
+    grep -qE "$field" "$file" || err "missing header field ${field//\\/} in $label"
+  done
+}
+
+check_no_foundation_boilerplate() {
+  local file="$1"
+  local label="$2"
+  for bad in 'Motivation' 'Goals' 'Non-Goals' 'Canonical Model' 'Required Behavior' 'Runtime Flow' 'Validation Rules' 'Error Model' 'Security Considerations' 'Migration Guidance' 'Future Work'; do
+    grep -qE "^## ([0-9]+\. )?$bad[[:space:]]*$" "$file" && err "boilerplate heading '$bad' still in $label"
+  done
+}
+
+if [ -f "$VERSIONING" ]; then
+  check_foundation_header "$VERSIONING" "RFC-0005"
+  check_no_foundation_boilerplate "$VERSIONING" "RFC-0005"
+  for required in 'Version Format' 'Versioned Subjects' 'Version Ranges' 'Change Rules' 'Pre-release and Build Metadata' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$VERSIONING" || err "missing RFC-0005 section '$required'"
+  done
+  grep -q 'Breaking changes require a major version bump' "$VERSIONING" || err "RFC-0005 must define major bump rule"
+  grep -q 'Compatible additive changes SHOULD use a minor version bump' "$VERSIONING" || err "RFC-0005 must define minor bump rule"
+  grep -q 'Patch changes MUST preserve compatibility and meaning' "$VERSIONING" || err "RFC-0005 must define patch bump rule"
+  grep -q 'Version selection.*RFC-0204\|RFC-0204.*version selection' "$VERSIONING" || err "RFC-0005 must delegate version selection to RFC-0204"
+fi
+
+if [ -f "$NAMING" ]; then
+  check_foundation_header "$NAMING" "RFC-0006"
+  check_no_foundation_boilerplate "$NAMING" "RFC-0006"
+  for required in 'Naming Principles' 'Identifier Grammar' 'Resource Identity' 'Kinds and Slugs' 'Rename and Alias Rules' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$NAMING" || err "missing RFC-0006 section '$required'"
+  done
+  grep -q 'metadata.id' "$NAMING" || err "RFC-0006 must define metadata.id naming"
+  grep -q 'namespace/name' "$NAMING" || err "RFC-0006 must define namespace/name IDs"
+  grep -q 'Changing `metadata.id` is a breaking identity change' "$NAMING" || err "RFC-0006 must define metadata.id rename behavior"
+  grep -q 'File paths MAY mirror resource names but MUST NOT be the source of resource identity' "$NAMING" || err "RFC-0006 must separate file paths from identity"
+fi
+
+if [ -f "$DEPENDENCY_GRAPH" ]; then
+  check_foundation_header "$DEPENDENCY_GRAPH" "RFC-0104"
+  check_no_foundation_boilerplate "$DEPENDENCY_GRAPH" "RFC-0104"
+  for required in 'Graph Model' 'Dependency Edge' 'Dependency Constraints' 'Graph Invariants' 'Validation Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$DEPENDENCY_GRAPH" || err "missing RFC-0104 section '$required'"
+  done
+  grep -q 'directed and acyclic' "$DEPENDENCY_GRAPH" || err "RFC-0104 must define directed acyclic graph rule"
+  grep -q 'DEPENDENCY_ERROR' "$DEPENDENCY_GRAPH" || err "RFC-0104 must reference DEPENDENCY_ERROR diagnostics"
+  grep -q 'Version selection.*RFC-0204\|RFC-0204.*version selection' "$DEPENDENCY_GRAPH" || err "RFC-0104 must delegate version selection to RFC-0204"
+  grep -q 'Lock snapshots.*RFC-0401\|RFC-0401.*lock snapshots' "$DEPENDENCY_GRAPH" || err "RFC-0104 must delegate lock snapshots to RFC-0401"
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
