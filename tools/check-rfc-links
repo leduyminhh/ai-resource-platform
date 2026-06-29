@@ -41,5 +41,28 @@ if [ -n "$TERM" ]; then
   done
 fi
 
+# --- Check 5: RFC-0007 Compatibility Policy ownership ---
+COMPAT="$ROOT/docs/100-foundation/RFC-0007-Compatibility-Policy.md"
+if [ -f "$COMPAT" ]; then
+  for field in '\*\*Status:\*\*' '\*\*Category:\*\*' '\*\*Specification:\*\*' '\*\*Version:\*\*'; do
+    grep -qE "$field" "$COMPAT" || err "missing header field ${field//\\/} in RFC-0007"
+  done
+
+  for bad in 'Canonical Model' 'Required Behavior' 'Runtime Flow' 'Error Model' 'Security Considerations' 'Migration Guidance' 'Future Work'; do
+    grep -qE "^#+ .*$bad" "$COMPAT" && err "boilerplate heading '$bad' still in RFC-0007"
+  done
+
+  for required in 'Compatibility Classes' 'General Rules' 'Compatibility Matrix' 'Deprecation Policy' 'Decision Rules' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$COMPAT" || err "missing RFC-0007 section '$required'"
+  done
+
+  for class in 'Compatible' 'Conditionally Compatible' 'Breaking' 'Unknown'; do
+    grep -q "$class" "$COMPAT" || err "missing RFC-0007 compatibility class '$class'"
+  done
+
+  for subject in 'Resource' 'Schema' 'Adapter' 'Package' 'Registry'; do
+    grep -q "$subject" "$COMPAT" || err "missing RFC-0007 matrix subject '$subject'"
+  done
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
