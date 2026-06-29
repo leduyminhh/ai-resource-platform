@@ -137,5 +137,29 @@ if [ -f "$RUNTIME" ]; then
 
   grep -q 'Execution MUST NOT start before required validation has passed' "$RUNTIME" || err "RFC-0200 must state execution does not start before validation passes"
 fi
+# --- Check 9: RFC-0800 Security Model ownership ---
+SECURITY="$ROOT/docs/900-security-governance/RFC-0800-Security-Model.md"
+if [ -f "$SECURITY" ]; then
+  for field in '\*\*Status:\*\*' '\*\*Category:\*\*' '\*\*Specification:\*\*' '\*\*Version:\*\*'; do
+    grep -qE "$field" "$SECURITY" || err "missing header field ${field//\\/} in RFC-0800"
+  done
+
+  for bad in 'Motivation' 'Goals' 'Non-Goals' 'Canonical Model' 'Required Behavior' 'Runtime Flow' 'Validation Rules' 'Error Model' 'Compatibility' 'Migration Guidance' 'Future Work' 'BUILD_ERROR'; do
+    grep -qE "^## ([0-9]+\. )?$bad$|$bad" "$SECURITY" && err "boilerplate or out-of-scope content '$bad' still in RFC-0800"
+  done
+
+  for required in 'Security Principles' 'Trust Boundaries' 'Required Controls' 'Validation Hooks' 'Failure Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$SECURITY" || err "missing RFC-0800 section '$required'"
+  done
+
+  for boundary in 'Local Workspace' 'Registry / Marketplace' 'Package / Artifact' 'Adapter / Execution' 'Secret Boundary'; do
+    grep -q "$boundary" "$SECURITY" || err "missing RFC-0800 trust boundary '$boundary'"
+  done
+
+  grep -q 'MUST NOT contain plaintext secrets' "$SECURITY" || err "RFC-0800 must forbid plaintext secrets in manifests"
+  grep -q 'not trusted by default\|not trust.*default' "$SECURITY" || err "RFC-0800 must state remote/trust targets are not trusted by default"
+  grep -q 'Execution MUST use declared adapters and capabilities' "$SECURITY" || err "RFC-0800 must require declared adapters/capabilities for execution"
+  grep -q 'POLICY_VIOLATION' "$SECURITY" || err "RFC-0800 must map security failures to POLICY_VIOLATION diagnostics"
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
