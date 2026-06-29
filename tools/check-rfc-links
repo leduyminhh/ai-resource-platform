@@ -85,5 +85,31 @@ if [ -f "$CANONICAL" ]; then
 
   grep -q 'status.*MUST NOT.*desired configuration\|desired configuration.*MUST NOT.*status' "$CANONICAL" || err "RFC-0100 must state status does not define desired configuration"
 fi
+# --- Check 7: RFC-0106 Validation Model ownership ---
+VALIDATION="$ROOT/docs/200-resource-model/RFC-0106-Validation-Model.md"
+if [ -f "$VALIDATION" ]; then
+  for field in '\*\*Status:\*\*' '\*\*Category:\*\*' '\*\*Specification:\*\*' '\*\*Version:\*\*'; do
+    grep -qE "$field" "$VALIDATION" || err "missing header field ${field//\\/} in RFC-0106"
+  done
+
+  for bad in 'Motivation' 'Goals' 'Non-Goals' 'Canonical Model' 'Runtime Flow' 'Security Considerations' 'Compatibility' 'Migration Guidance' 'Future Work' 'BUILD_ERROR'; do
+    grep -qE "^#+ .*$bad|$bad" "$VALIDATION" && err "boilerplate or out-of-scope content '$bad' still in RFC-0106"
+  done
+
+  for required in 'Validation Inputs' 'Validation Layers' 'Validation Result Envelope' 'Diagnostic Object' 'Error Code Taxonomy' 'Required Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$VALIDATION" || err "missing RFC-0106 section '$required'"
+  done
+
+  for severity in 'error' 'warning' 'info'; do
+    grep -q "$severity" "$VALIDATION" || err "missing RFC-0106 severity '$severity'"
+  done
+
+  for code in 'SYNTAX_ERROR' 'SCHEMA_ERROR' 'METADATA_ERROR' 'SEMANTIC_ERROR' 'DEPENDENCY_ERROR' 'COMPATIBILITY_ERROR' 'POLICY_VIOLATION' 'VALIDATOR_ERROR'; do
+    grep -q "$code" "$VALIDATION" || err "missing RFC-0106 error code '$code'"
+  done
+
+  grep -q 'valid.*false.*severity.*error\|severity.*error.*valid.*false' "$VALIDATION" || err "RFC-0106 must state valid=false when any diagnostic severity is error"
+  grep -q 'MUST NOT mutate source resources' "$VALIDATION" || err "RFC-0106 must state validators do not mutate source resources"
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
