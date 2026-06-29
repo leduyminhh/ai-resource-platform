@@ -7,123 +7,108 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
-Defines resource dependencies as a directed acyclic graph where nodes are resources and edges are dependency declarations.
+Defines resource-level dependency graph semantics for ARPS resources.
 
-## 2. Motivation
+This RFC owns graph nodes, dependency edges, dependency constraints and graph invariants. Version syntax is defined by [RFC-0005](../100-foundation/RFC-0005-Versioning.md); naming and resource identity are defined by [RFC-0006](../100-foundation/RFC-0006-Naming-Convention.md); canonical resource envelopes are defined by [RFC-0100](RFC-0100-Canonical-Resource-Model.md); validation diagnostics are defined by [RFC-0106](RFC-0106-Validation-Model.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+A dependency graph describes resource relationships before runtime execution. It does not define resolver algorithms, version selection, conflict resolution, lock snapshots or package format.
 
-## 4. Non-Goals
+## 2. Graph Model
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+A dependency graph is a directed graph:
 
-## 5. Canonical Model
+- A node represents a canonical resource identified by `kind`, `metadata.id` and `metadata.version`.
+- An edge points from a resource to another resource it requires.
+- The graph is evaluated at resource level, not file path level.
+- Dependency graphs MUST be directed and acyclic.
 
-Every platform object SHOULD be represented as a canonical resource:
+An implementation MAY materialize the graph in memory, in a lock file or in registry metadata, but this RFC defines only the resource-level model.
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+## 3. Dependency Edge
 
-## 6. Required Behavior
+A dependency edge SHOULD identify the target resource by ID and MAY constrain kind and version range.
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
-
-## 7. Runtime Flow
-
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
-
-## 8. Validation Rules
-
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+Conceptual shape:
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
+dependencies:
+  - id: prompts/customer-support-summary
+    kind: Prompt
+    version: ">=1.2.0 <2.0.0"
+    optional: false
 ```
 
-## 13. Migration Guidance
+Fields:
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
+| Field | Meaning |
+|---|---|
+| `id` | Target resource identity using RFC-0006 naming rules. |
+| `kind` | Optional target kind constraint. |
+| `version` | Optional version range using RFC-0005 range vocabulary. |
+| `optional` | Whether the dependency may be absent without invalidating the resource. |
 
+## 4. Dependency Constraints
 
+- Required dependencies MUST identify a target resource ID.
+- Required dependencies MAY constrain target kind and version range.
+- Optional dependencies SHOULD declare fallback behavior in the owning resource kind specification.
+- Dependency declarations MUST NOT depend on repository file paths as identity.
+- Version selection and conflict resolution are owned by [RFC-0204](../300-runtime/RFC-0204-Dependency-Resolver.md).
 
-## 14. Future Work
+## 5. Graph Invariants
 
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- Dependency graphs MUST be directed and acyclic.
+- A required dependency MUST resolve to one acceptable target before execution or packaging decisions consume the graph.
+- A dependency edge MUST NOT silently resolve to a resource with a different `metadata.id`.
+- Ambiguous matches MUST NOT be accepted as deterministic resolution.
+- Graph traversal SHOULD be deterministic for the same registry inputs and policy configuration.
+
+## 6. Validation Behavior
+
+Validation SHOULD detect missing required dependencies, ambiguous dependencies, invalid version ranges and cycles.
+
+Missing, ambiguous or cyclic dependencies SHOULD produce `DEPENDENCY_ERROR` diagnostics through [RFC-0106](RFC-0106-Validation-Model.md).
+
+Validation may prove that a graph is structurally acceptable. It does not choose the final concrete version when multiple acceptable versions exist; that version selection belongs to [RFC-0204](../300-runtime/RFC-0204-Dependency-Resolver.md). Lock snapshots belong to [RFC-0401](../500-build-distribution/RFC-0401-Lock-File.md).
+
+## 7. Examples
+
+### 7.1 Prompt dependency
+
+A workflow can depend on a prompt resource by ID and compatible version range:
+
+```yaml
+kind: Workflow
+metadata:
+  id: workflows/support-summary
+  version: 1.0.0
+spec:
+  dependencies:
+    - id: prompts/customer-support-summary
+      kind: Prompt
+      version: ">=1.2.0 <2.0.0"
+```
+
+### 7.2 Cycle rejected
+
+If `workflows/a` depends on `workflows/b` and `workflows/b` depends on `workflows/a`, validation reports a `DEPENDENCY_ERROR` because the graph is cyclic.
+
+### 7.3 Missing dependency rejected
+
+If a required dependency points to `prompts/missing-summary` and no registry source provides that resource ID, validation reports a `DEPENDENCY_ERROR`.
+
+## References
+
+- [RFC-0005 — Versioning](../100-foundation/RFC-0005-Versioning.md)
+- [RFC-0006 — Naming Convention](../100-foundation/RFC-0006-Naming-Convention.md)
+- [RFC-0100 — Canonical Resource Model](RFC-0100-Canonical-Resource-Model.md)
+- [RFC-0102 — Metadata Model](RFC-0102-Metadata-Model.md)
+- [RFC-0106 — Validation Model](RFC-0106-Validation-Model.md)
+- [RFC-0204 — Dependency Resolver](../300-runtime/RFC-0204-Dependency-Resolver.md)
+- [RFC-0401 — Lock File](../500-build-distribution/RFC-0401-Lock-File.md)

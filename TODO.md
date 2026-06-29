@@ -12,4 +12,4 @@
 - [x] RFC-0800 Security Model — nhà của Security Considerations
 - [x] RFC-0007 Compatibility Policy — nhà của Compatibility
 - [x] RFC-0901 Migration Guide — nhà của Migration Guidance
-- [ ] RFC-0005 Versioning, RFC-0006 Naming, RFC-0104 Dependency Graph — rule con được trỏ tới
+- [x] RFC-0005 Versioning, RFC-0006 Naming, RFC-0104 Dependency Graph — rule con được trỏ tới
