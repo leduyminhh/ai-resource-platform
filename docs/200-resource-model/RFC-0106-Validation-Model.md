@@ -7,123 +7,189 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
-Defines common validation layers and result format for syntax, schema, metadata, semantic, compatibility and policy validation.
+Defines validation layers, validation result envelope and diagnostic/error model for ARPS resources.
 
-## 2. Motivation
+This RFC owns validation rules and reporting contracts. Resource envelope semantics are defined by [RFC-0100](RFC-0100-Canonical-Resource-Model.md); compatibility classification is defined by [RFC-0007](../100-foundation/RFC-0007-Compatibility-Policy.md); validation engine execution strategy is defined by [RFC-0203](../300-runtime/RFC-0203-Validation-Engine.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+A validator evaluates resource documents against schemas, metadata constraints, semantic rules, dependency context, compatibility policy and governance policy. This RFC defines the layer contract and result shape. It does not define whether an engine runs layers synchronously, in parallel, incrementally or with caching.
 
-## 4. Non-Goals
+## 2. Validation Inputs
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+| Input | Role |
+|---|---|
+| Resource document | YAML/JSON source being validated. |
+| Canonical envelope | `apiVersion`, `kind`, `metadata`, `spec` and optional `status` from [RFC-0100](RFC-0100-Canonical-Resource-Model.md). |
+| Schema context | Envelope schema plus kind-specific schema. |
+| Registry context | IDs, versions, namespaces and registry policy required for cross-resource checks. |
+| Dependency graph context | Dependency edges, referenced resources and graph constraints. |
+| Compatibility context | Previous/current resources or declared compatibility policy from [RFC-0007](../100-foundation/RFC-0007-Compatibility-Policy.md). |
+| Policy context | Organization, registry, security and governance constraints. |
 
-## 5. Canonical Model
+Missing context MUST be reported as a diagnostic when a requested validation layer requires that context.
 
-Every platform object SHOULD be represented as a canonical resource:
+## 3. Validation Layers
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+| Layer | Responsibility | Primary code |
+|---|---|---|
+| `syntax` | Parse YAML/JSON, encoding and malformed document source. | `SYNTAX_ERROR` |
+| `schema` | Validate envelope and kind-specific schema. | `SCHEMA_ERROR` |
+| `metadata` | Validate identity, version and registry metadata constraints. | `METADATA_ERROR` |
+| `semantic` | Validate kind-specific invariants not expressible by schema alone. | `SEMANTIC_ERROR` |
+| `dependency` | Validate missing dependencies, graph edges and acyclic constraints. | `DEPENDENCY_ERROR` |
+| `compatibility` | Report compatibility classification conflicts from [RFC-0007](../100-foundation/RFC-0007-Compatibility-Policy.md). | `COMPATIBILITY_ERROR` |
+| `policy` | Apply organization, registry, security and governance policies. | `POLICY_VIOLATION` |
 
-## 6. Required Behavior
+Layers are a reporting contract. Execution order, short-circuiting and parallelism are owned by [RFC-0203](../300-runtime/RFC-0203-Validation-Engine.md).
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+## 4. Validation Result Envelope
 
-## 7. Runtime Flow
-
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
-
-## 8. Validation Rules
-
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+Validation output MUST use this envelope:
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
+valid: false
+diagnostics:
+  - code: METADATA_ERROR
+    severity: error
+    layer: metadata
+    message: metadata.id must be unique in the registry
+    resourceId: core/clean-code
+    path: /metadata/id
+    location:
+      file: examples/resources/skill.yaml
+      line: 4
+      column: 7
+    reference: RFC-0102
+summary:
+  errorCount: 1
+  warningCount: 0
+  infoCount: 0
+validator:
+  name: arps-validator
+  version: 0.1.0
 ```
 
-## 13. Migration Guidance
+`valid` and `diagnostics` are required. `summary` and `validator` are optional.
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
+## 5. Diagnostic Object
 
+| Field | Required | Semantics |
+|---|---|---|
+| `code` | Yes | Stable machine-readable diagnostic code. |
+| `severity` | Yes | One of `error`, `warning` or `info`. |
+| `layer` | Yes | Validation layer that produced the diagnostic. |
+| `message` | Yes | Human-readable explanation. |
+| `resourceId` | No | Related resource ID when known. |
+| `path` | No | JSON Pointer or YAML path to the logical value. |
+| `location` | No | File, line and column when source location is available. |
+| `reference` | No | RFC, schema or policy reference. |
 
+Diagnostic messages SHOULD be clear enough for a human to act on without reading validator source code.
 
-## 14. Future Work
+## 6. Error Code Taxonomy
 
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+| Code | Layer | Meaning |
+|---|---|---|
+| `SYNTAX_ERROR` | `syntax` | Source cannot be parsed or decoded. |
+| `SCHEMA_ERROR` | `schema` | Resource fails envelope or kind-specific schema validation. |
+| `METADATA_ERROR` | `metadata` | Metadata identity, version or registry constraint fails. |
+| `SEMANTIC_ERROR` | `semantic` | Kind-specific invariant fails. |
+| `DEPENDENCY_ERROR` | `dependency` | Dependency reference, edge or graph invariant fails. |
+| `COMPATIBILITY_ERROR` | `compatibility` | Change conflicts with compatibility policy. |
+| `POLICY_VIOLATION` | `policy` | Organization, registry, security or governance policy fails. |
+| `VALIDATOR_ERROR` | validator infrastructure | Validator cannot load required schema, policy or context. |
+
+Build pipeline failures are outside the core validation model and are owned by build/distribution RFCs.
+
+## 7. Required Behavior
+
+- `valid` MUST be `false` when any diagnostic has severity `error`.
+- `valid` MAY be `true` when diagnostics contain only `warning` or `info` severities.
+- Validators MUST produce deterministic diagnostic ordering for identical inputs and context.
+- Validators SHOULD continue after recoverable errors to report multiple diagnostics.
+- Validators MUST NOT mutate source resources during validation.
+- Missing required context MUST produce a diagnostic instead of a silent pass.
+- Unsupported resource kinds, schemas or policies SHOULD produce `SCHEMA_ERROR`, `POLICY_VIOLATION` or `VALIDATOR_ERROR` according to the cause.
+
+## 8. Examples
+
+### 8.1 Valid result
+
+```yaml
+valid: true
+diagnostics: []
+summary:
+  errorCount: 0
+  warningCount: 0
+  infoCount: 0
+```
+
+### 8.2 Duplicate metadata ID
+
+```yaml
+valid: false
+diagnostics:
+  - code: METADATA_ERROR
+    severity: error
+    layer: metadata
+    message: metadata.id must be unique in the registry
+    resourceId: core/clean-code
+    path: /metadata/id
+    reference: RFC-0102
+```
+
+### 8.3 Compatibility conflict
+
+```yaml
+valid: false
+diagnostics:
+  - code: COMPATIBILITY_ERROR
+    severity: error
+    layer: compatibility
+    message: removing exported resource core/clean-code is a breaking change
+    resourceId: core/clean-code
+    path: /spec/exports/0
+    reference: RFC-0007
+```
+
+### 8.4 Policy violation
+
+```yaml
+valid: false
+diagnostics:
+  - code: POLICY_VIOLATION
+    severity: error
+    layer: policy
+    message: namespace experimental is not allowed in this registry
+    resourceId: experimental/demo
+    path: /metadata/id
+    reference: RFC-0802
+```
+
+### 8.5 Validator infrastructure failure
+
+```yaml
+valid: false
+diagnostics:
+  - code: VALIDATOR_ERROR
+    severity: error
+    layer: schema
+    message: validator could not load schema for kind Adapter
+    path: /kind
+```
+
+## References
+
+- [RFC-0007 — Compatibility Policy](../100-foundation/RFC-0007-Compatibility-Policy.md)
+- [RFC-0100 — Canonical Resource Model](RFC-0100-Canonical-Resource-Model.md)
+- [RFC-0101 — Serialization](RFC-0101-Serialization.md)
+- [RFC-0102 — Metadata Model](RFC-0102-Metadata-Model.md)
+- [RFC-0104 — Dependency Graph](RFC-0104-Dependency-Graph.md)
+- [RFC-0203 — Validation Engine](../300-runtime/RFC-0203-Validation-Engine.md)
+- [RFC-0800 — Security Model](../900-security-governance/RFC-0800-Security-Model.md)
+- [RFC-0802 — Governance](../900-security-governance/RFC-0802-Governance.md)
