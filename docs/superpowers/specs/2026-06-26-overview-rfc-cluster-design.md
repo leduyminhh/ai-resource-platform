@@ -3,7 +3,7 @@
 - **Ngày:** 2026-06-26
 - **Phạm vi:** Phase A (hoàn thiện đặc tả), sub-project #1 — cụm `docs/000-overview/`
 - **Approach:** A — De-dup + delegate + ADR convention
-- **Trạng thái:** Draft (chờ review)
+- **Trạng thái:** Completed (đã triển khai và verify)
 
 ## Bối cảnh
 
