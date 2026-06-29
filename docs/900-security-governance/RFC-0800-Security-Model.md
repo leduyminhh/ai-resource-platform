@@ -7,123 +7,93 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
-Defines platform security principles for trust, secrets, remote resources and package verification.
+Defines ARPS security principles, trust boundaries, required controls and validation hooks.
 
-## 2. Motivation
+This RFC owns the security model for trust, secrets, remote resources, package verification and execution boundaries. Signing and integrity mechanisms are defined by [RFC-0801](RFC-0801-Signing-and-Integrity.md); governance workflow is defined by [RFC-0802](RFC-0802-Governance.md); diagnostics are defined by [RFC-0106](../200-resource-model/RFC-0106-Validation-Model.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+Security controls in this RFC define requirements and boundaries. Specific algorithms, approval workflows, execution internals and diagnostic envelope shapes are owned by their respective RFCs.
 
-## 4. Non-Goals
+## 2. Security Principles
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+- Remote registries, packages and execution targets are not trusted by default.
+- Implementations SHOULD use least privilege for adapters, tools and runtime context.
+- Resource manifests MUST NOT contain plaintext secrets.
+- Remote resources and packages SHOULD be verified before use.
+- Security-relevant decisions SHOULD be deterministic and auditable.
+- Unknown trust context SHOULD fail closed for high-risk actions such as execution and publishing.
 
-## 5. Canonical Model
+## 3. Trust Boundaries
 
-Every platform object SHOULD be represented as a canonical resource:
+| Boundary | Meaning | Main risk |
+|---|---|---|
+| Local Workspace | Repository files and local resource manifests. | unreviewed local changes or accidental secret inclusion |
+| Registry / Marketplace | Remote metadata, resources and packages. | dependency confusion, untrusted source or malicious metadata |
+| Package / Artifact | Distributable bundles and generated artifacts. | tampering, missing integrity metadata or artifact substitution |
+| Adapter / Execution | Tool, model or vendor execution boundary. | undeclared capability use, unsafe side effects or data exfiltration |
+| Secret Boundary | External secret provider or runtime secret injection. | plaintext secret leakage, logging secrets or manifest persistence |
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+## 4. Required Controls
 
-## 6. Required Behavior
+- Remote registries and marketplace sources SHOULD be explicitly trusted before use.
+- Remote resources SHOULD be verified before validation, execution or publishing decisions.
+- High-risk actions MAY require policy to make verification mandatory.
+- Packages SHOULD include integrity metadata; signing and checksum mechanism details are owned by [RFC-0801](RFC-0801-Signing-and-Integrity.md).
+- Resource manifests MUST NOT contain plaintext secrets.
+- Execution MUST use declared adapters and capabilities.
+- Tools MUST NOT log secrets or write them into generated manifests or artifacts.
+- Security policy failures SHOULD surface as `POLICY_VIOLATION` diagnostics using [RFC-0106](../200-resource-model/RFC-0106-Validation-Model.md).
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+## 5. Validation Hooks
 
-## 7. Runtime Flow
+| Hook | Layer | Example diagnostic |
+|---|---|---|
+| Secret scan | policy or semantic | plaintext token-like value found in manifest |
+| Registry trust check | policy | registry source is not in trusted set |
+| Package integrity check | policy | package is missing required integrity metadata |
+| Adapter capability check | policy or semantic | execution requires undeclared adapter capability |
+| Remote source check | policy | remote resource source cannot be verified |
 
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
+Validation hooks define what SHOULD be checked. Validator execution strategy and diagnostic envelope shape are owned by [RFC-0106](../200-resource-model/RFC-0106-Validation-Model.md) and validation engine RFCs.
 
-## 8. Validation Rules
+## 6. Failure Behavior
 
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
+- Unknown trust context SHOULD produce warning or error based on policy risk level.
+- High-risk execution or publishing SHOULD fail closed when trust cannot be established.
+- Plaintext secret detection MUST be an error.
+- Missing required package integrity metadata MUST produce `POLICY_VIOLATION` when policy requires integrity metadata.
+- Untrusted registry, package or execution target MUST NOT be silently allowed.
+- Security diagnostics SHOULD include reference, path and location information when available.
 
-## 9. Error Model
+## 7. Examples
 
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
+### 7.1 Trusted registry accepted
 
-## 10. Security Considerations
+A registry source configured as trusted by policy can be used for discovery and dependency resolution. The trust decision should be auditable through policy or registry configuration.
 
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
+### 7.2 Package missing integrity metadata
 
-## 11. Compatibility
+A package without required integrity metadata produces a warning or `POLICY_VIOLATION` depending on the active policy. Signing and checksum details are delegated to [RFC-0801](RFC-0801-Signing-and-Integrity.md).
 
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
+### 7.3 Plaintext secret rejected
 
-## 12. Example
+A manifest containing `spec.token: abc123` is invalid when that value is a plaintext secret. The secret must be referenced through an external secret provider or runtime injection mechanism.
 
-```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
-```
+### 7.4 Undeclared adapter capability blocked
 
-## 13. Migration Guidance
+An execution plan requiring filesystem write access is blocked when the selected adapter does not declare that capability.
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
+## References
 
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0106 — Validation Model](../200-resource-model/RFC-0106-Validation-Model.md)
+- [RFC-0200 — Runtime Architecture](../300-runtime/RFC-0200-Runtime-Architecture.md)
+- [RFC-0206 — Execution Engine](../300-runtime/RFC-0206-Execution-Engine.md)
+- [RFC-0402 — Packaging](../500-build-distribution/RFC-0402-Packaging.md)
+- [RFC-0403 — Registry and Marketplace](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md)
+- [RFC-0801 — Signing and Integrity](RFC-0801-Signing-and-Integrity.md)
+- [RFC-0802 — Governance](RFC-0802-Governance.md)
