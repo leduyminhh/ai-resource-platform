@@ -9,7 +9,7 @@
 - [x] RFC-0100 Canonical Resource Model — nhà của Canonical Model, Required Behavior
 - [x] RFC-0106 Validation Model — nhà của Validation Rules + Error Model
 - [x] RFC-0200 Runtime Architecture — nhà của Runtime Flow
-- [ ] RFC-0800 Security Model — nhà của Security Considerations
+- [x] RFC-0800 Security Model — nhà của Security Considerations
 - [x] RFC-0007 Compatibility Policy — nhà của Compatibility
 - [ ] RFC-0901 Migration Guide — nhà của Migration Guidance
 - [ ] RFC-0005 Versioning, RFC-0006 Naming, RFC-0104 Dependency Graph — rule con được trỏ tới
