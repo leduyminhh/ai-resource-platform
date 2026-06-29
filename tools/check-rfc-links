@@ -112,5 +112,30 @@ if [ -f "$VALIDATION" ]; then
   grep -q 'valid.*false.*severity.*error\|severity.*error.*valid.*false' "$VALIDATION" || err "RFC-0106 must state valid=false when any diagnostic severity is error"
   grep -q 'MUST NOT mutate source resources' "$VALIDATION" || err "RFC-0106 must state validators do not mutate source resources"
 fi
+# --- Check 8: RFC-0200 Runtime Architecture ownership ---
+RUNTIME="$ROOT/docs/300-runtime/RFC-0200-Runtime-Architecture.md"
+if [ -f "$RUNTIME" ]; then
+  for field in '\*\*Status:\*\*' '\*\*Category:\*\*' '\*\*Specification:\*\*' '\*\*Version:\*\*'; do
+    grep -qE "$field" "$RUNTIME" || err "missing header field ${field//\\/} in RFC-0200"
+  done
+
+  for bad in 'Motivation' 'Goals' 'Non-Goals' 'Canonical Model' 'Validation Rules' 'Error Model' 'Security Considerations' 'Compatibility' 'Migration Guidance' 'Future Work'; do
+    grep -qE "^## ([0-9]+\. )?$bad$" "$RUNTIME" && err "boilerplate heading '$bad' still in RFC-0200"
+  done
+
+  for required in 'Runtime Pipeline' 'Engine Boundary Matrix' 'Handoff Artifacts' 'Runtime Invariants' 'Failure Boundaries' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$RUNTIME" || err "missing RFC-0200 section '$required'"
+  done
+
+  for engine in 'Discovery Engine' 'Registry Engine' 'Validation Engine' 'Dependency Resolver' 'Planning Engine' 'Execution Engine' 'Packaging Engine' 'Publishing Engine'; do
+    grep -q "$engine" "$RUNTIME" || err "missing RFC-0200 engine '$engine'"
+  done
+
+  for artifact in 'ResourceCandidate' 'CanonicalResourceSet' 'ValidationResult' 'DependencyGraph' 'ExecutionPlan' 'ExecutionArtifact' 'PackageBundle' 'PublishResult'; do
+    grep -q "$artifact" "$RUNTIME" || err "missing RFC-0200 handoff artifact '$artifact'"
+  done
+
+  grep -q 'Execution MUST NOT start before required validation has passed' "$RUNTIME" || err "RFC-0200 must state execution does not start before validation passes"
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
