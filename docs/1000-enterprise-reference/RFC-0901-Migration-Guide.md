@@ -9,121 +9,85 @@
 
 ## 1. Abstract
 
-Defines non-invasive migration from existing projects into ARPS.
+This RFC defines the non-invasive migration playbook for adopting ARPS in existing repositories. It describes migration principles, migration phases, phase gates, safety boundaries and rollback guidance.
 
-## 2. Motivation
+RFC-0901 does not redefine the canonical resource model, runtime architecture, validation model, security model or compatibility policy. Those topics remain owned by their dedicated RFCs.
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 2. Migration Principles
 
-## 3. Goals
+- Non-invasive first: existing business source code SHOULD remain in place until a migration gate explicitly approves a restructure.
+- Migration SHOULD perform metadata overlay before restructure: add or derive ARPS metadata before moving files or rewriting source layouts.
+- Incremental adoption: teams SHOULD migrate one resource family, repository area or package boundary at a time.
+- Validation-led progress: each phase SHOULD produce artifacts that can be validated before later phases consume them.
+- Reversible rollout: migration actions SHOULD have a clear rollback path before they are executed.
+- Human review gates: risky actions such as execution rollout, publishing or marketplace adoption SHOULD require review or policy approval.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 3. Migration Phases
 
-## 4. Non-Goals
+| Phase | Purpose |
+| --- | --- |
+| Inventory | Discover existing prompts, workflows, skills, adapters, policies, packages and documentation without changing them. |
+| Mapping | Map discovered assets to ARPS resource kinds, owners, lifecycle status and registry namespaces. |
+| Metadata Overlay | Add or derive `metadata.id`, `metadata.name`, `metadata.version`, labels and annotations without moving files. |
+| Validation | Run schema, metadata, dependency and policy checks against candidate resources. |
+| Dependency Resolution | Resolve resource dependencies and confirm the graph can be planned safely. |
+| Adapter/Build Rollout | Introduce adapters, build steps or execution plans only after validation and dependency gates pass. |
+| Publishing/Adoption | Package and publish stable resources for registry or marketplace consumers. |
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+## 4. Phase Gate Matrix
 
-## 5. Canonical Model
+| Phase | Entry Criteria | Output | Exit Gate | Rollback |
+| --- | --- | --- | --- | --- |
+| Inventory | repository access | asset inventory | inventory reviewed | discard inventory |
+| Mapping | reviewed inventory | resource mapping table | owner and kind accepted | revert mapping notes |
+| Metadata Overlay | mapped assets | resource metadata overlay | metadata validates | remove or revert overlay metadata |
+| Validation | candidate resources | validation report | schema, metadata, policy and secret checks pass | fix or remove candidate resources |
+| Dependency Resolution | validated resources | dependency graph | graph is acyclic and required dependencies resolve | remove dependency metadata |
+| Adapter/Build Rollout | resolved graph | adapter or build plan | validation + dependency gates pass | disable adapter or revert build plan |
+| Publishing/Adoption | package bundle | published package or adoption record | validation + integrity/security publishing gates pass | publish replacement or deprecate bad version |
 
-Every platform object SHOULD be represented as a canonical resource:
+## 5. Safety Boundaries
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+- Migration MUST NOT require moving or rewriting existing business source code during inventory, mapping or metadata overlay phases.
+- Execution MUST NOT begin until validation + dependency gates pass.
+- Publishing MUST NOT happen until validation + integrity/security publishing gates pass.
+- Secrets MUST NOT be copied into resource manifests or generated migration overlays.
+- Generated migration artifacts SHOULD be clearly separated from authoritative source files unless the owner accepts them.
+- Existing source-of-truth files SHOULD remain authoritative until migrated resources are reviewed and accepted.
+- Registry aliases and deprecations SHOULD be used instead of silently moving resource identities.
 
-## 6. Required Behavior
+## 6. Rollback Guidance
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+- Inventory artifacts can be discarded without changing source resources.
+- Mapping notes can be reverted if the selected kind, namespace or owner is wrong.
+- Metadata overlays can be removed or reverted if validation fails.
+- Registry entries can be deregistered, marked `Draft`, or deprecated depending on registry policy.
+- Published package versions SHOULD be immutable; rollback should publish a replacement or deprecate the bad version instead of mutating old artifacts.
+- Adapter and build rollout should be reversible by disabling the adapter or reverting execution plans.
 
-## 7. Runtime Flow
+## 7. Examples
 
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
+### 7.1 Prompt library migration
 
-## 8. Validation Rules
+Existing prompt files are inventoried, mapped to `Prompt` resources, given metadata overlays, validated, then registered in a local registry view. The prompt files do not need to move during the initial migration.
 
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
+### 7.2 Workflow script migration
 
-## 9. Error Model
+Existing scripts are mapped to `Workflow` resources. Dependency metadata is added only after inventory review. Adapter rollout starts only after validation and dependency resolution pass.
 
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
+### 7.3 Stop at validation
 
-## 10. Security Considerations
+A migration stops when validation reports a duplicate `metadata.id` or a plaintext secret in `spec`. The migration resumes after the metadata or secret handling is fixed.
 
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
+## References
 
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
-
-```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
-```
-
-## 13. Migration Guidance
-
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0100 — Canonical Resource Model](../200-resource-model/RFC-0100-Canonical-Resource-Model.md)
+- [RFC-0102 — Metadata Model](../200-resource-model/RFC-0102-Metadata-Model.md)
+- [RFC-0104 — Dependency Graph](../200-resource-model/RFC-0104-Dependency-Graph.md)
+- [RFC-0106 — Validation Model](../200-resource-model/RFC-0106-Validation-Model.md)
+- [RFC-0200 — Runtime Architecture](../300-runtime/RFC-0200-Runtime-Architecture.md)
+- [RFC-0400 — Build Pipeline](../500-build-distribution/RFC-0400-Build-Pipeline.md)
+- [RFC-0402 — Packaging](../500-build-distribution/RFC-0402-Packaging.md)
+- [RFC-0403 — Registry and Marketplace](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md)
+- [RFC-0800 — Security Model](../900-security-governance/RFC-0800-Security-Model.md)
+- [RFC-0900 — Enterprise Reference Architecture](RFC-0900-Enterprise-Reference-Architecture.md)
