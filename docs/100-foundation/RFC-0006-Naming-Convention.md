@@ -7,123 +7,104 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
-Defines stable naming rules for resource IDs, namespaces, kinds, files and packages.
+Defines stable naming rules for ARPS namespaces, resource names, `metadata.id`, resource kinds, file slugs and package slugs.
 
-## 2. Motivation
+This RFC owns naming grammar and identity rules. Canonical resource envelope fields are defined by [RFC-0100](../200-resource-model/RFC-0100-Canonical-Resource-Model.md); version semantics are defined by [RFC-0005](RFC-0005-Versioning.md); compatibility classification is defined by [RFC-0007](RFC-0007-Compatibility-Policy.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+Names in this RFC are portable identifiers. Human-facing display titles MAY use richer text, but portable identifiers SHOULD remain stable, lowercase and safe for filesystems, registries and URLs.
 
-## 4. Non-Goals
+## 2. Naming Principles
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+- Names SHOULD be stable, readable and deterministic.
+- Names and slugs SHOULD use lowercase ASCII letters, digits and hyphens unless a more specific RFC allows otherwise.
+- Registry-facing identifiers SHOULD avoid whitespace, path traversal segments and shell-sensitive characters.
+- A name SHOULD describe what the resource is, not where it currently lives.
+- File paths MAY mirror resource names but MUST NOT be the source of resource identity.
 
-## 5. Canonical Model
+## 3. Identifier Grammar
 
-Every platform object SHOULD be represented as a canonical resource:
-
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
-
-## 6. Required Behavior
-
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
-
-## 7. Runtime Flow
+The default grammar is:
 
 ```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
+namespace      = segment *("/" segment)
+resource-name  = segment
+metadata.id    = namespace "/" resource-name
+segment        = lowercase letter or digit *(lowercase letter / digit / "-")
+kind           = UpperCamelCase identifier
+slug           = segment *("-" segment)
 ```
 
-## 8. Validation Rules
+Rules:
 
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
+- `metadata.id` SHOULD use `namespace/name` form.
+- `namespace` SHOULD group ownership, domain or distribution scope.
+- `resource-name` SHOULD be unique inside its namespace.
+- `kind` SHOULD use UpperCamelCase, such as `Prompt`, `Workflow` or `Adapter`.
+- `slug` SHOULD be lowercase and portable for files, packages and URLs.
 
-## 9. Error Model
+## 4. Resource Identity
 
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
+`metadata.id` is the stable registry identity for a resource. `metadata.name` MAY repeat the final name segment for local readability, but consumers MUST NOT treat `metadata.name` alone as globally unique.
 
-## 10. Security Considerations
+A resource identity is evaluated with its kind and version context:
 
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
+| Field | Role |
+|---|---|
+| `kind` | Declares the resource contract family. |
+| `metadata.id` | Declares stable resource identity. |
+| `metadata.name` | Provides local display or shorthand name. |
+| `metadata.version` | Declares the version of that identity's contract. |
 
-## 11. Compatibility
+## 5. Kinds and Slugs
 
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
+Resource kinds SHOULD be stable contract names. Changing `kind` changes the resource contract family and is compatibility-sensitive under [RFC-0007](RFC-0007-Compatibility-Policy.md).
 
-## 12. Example
+File and package slugs SHOULD be derived from stable names when practical. A repository MAY choose a different directory layout, but the canonical identity remains `metadata.id`.
+
+## 6. Rename and Alias Rules
+
+- Changing `metadata.id` is a breaking identity change unless an alias or migration path preserves consumers.
+- Renaming files without changing `metadata.id` SHOULD NOT change resource identity.
+- Registry aliases MAY map an old ID to a new ID when a migration path is explicit.
+- Deprecation SHOULD be preferred before removing a public resource ID.
+- Alias storage and registry mechanics are owned by registry RFCs, not this naming convention.
+
+## 7. Examples
+
+### 7.1 Prompt resource ID
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
+kind: Prompt
 metadata:
-  id: example/default
-  name: default
+  id: prompts/customer-support-summary
+  name: customer-support-summary
   version: 1.0.0
-spec: {}
 ```
 
-## 13. Migration Guidance
+### 7.2 Workflow resource ID
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
+```yaml
+kind: Workflow
+metadata:
+  id: workflows/release-notes
+  name: release-notes
+  version: 1.2.0
+```
 
+### 7.3 File path is not identity
 
+A file may move from `prompts/support/summary.yaml` to `resources/prompts/customer-support-summary.yaml`. If `metadata.id` remains `prompts/customer-support-summary`, consumers still refer to the same resource identity.
 
-## 14. Future Work
+## References
 
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0005 — Versioning](RFC-0005-Versioning.md)
+- [RFC-0007 — Compatibility Policy](RFC-0007-Compatibility-Policy.md)
+- [RFC-0100 — Canonical Resource Model](../200-resource-model/RFC-0100-Canonical-Resource-Model.md)
+- [RFC-0102 — Metadata Model](../200-resource-model/RFC-0102-Metadata-Model.md)
+- [RFC-0403 — Registry and Marketplace](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md)
