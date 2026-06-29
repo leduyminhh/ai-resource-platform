@@ -64,5 +64,26 @@ if [ -f "$COMPAT" ]; then
     grep -q "$subject" "$COMPAT" || err "missing RFC-0007 matrix subject '$subject'"
   done
 fi
+# --- Check 6: RFC-0100 Canonical Resource Model ownership ---
+CANONICAL="$ROOT/docs/200-resource-model/RFC-0100-Canonical-Resource-Model.md"
+if [ -f "$CANONICAL" ]; then
+  for field in '\*\*Status:\*\*' '\*\*Category:\*\*' '\*\*Specification:\*\*' '\*\*Version:\*\*'; do
+    grep -qE "$field" "$CANONICAL" || err "missing header field ${field//\\/} in RFC-0100"
+  done
+
+  for bad in 'Motivation' 'Goals' 'Non-Goals' 'Runtime Flow' 'Validation Rules' 'Error Model' 'Security Considerations' 'Compatibility' 'Migration Guidance' 'Future Work'; do
+    grep -qE "^#+ .*$bad" "$CANONICAL" && err "boilerplate heading '$bad' still in RFC-0100"
+  done
+
+  for required in 'Resource Envelope' 'Top-Level Fields' 'Required Behavior' 'Envelope Invariants' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$CANONICAL" || err "missing RFC-0100 section '$required'"
+  done
+
+  for field in 'apiVersion' 'kind' 'metadata' 'spec' 'status'; do
+    grep -q "$field" "$CANONICAL" || err "missing RFC-0100 envelope field '$field'"
+  done
+
+  grep -q 'status.*MUST NOT.*desired configuration\|desired configuration.*MUST NOT.*status' "$CANONICAL" || err "RFC-0100 must state status does not define desired configuration"
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
