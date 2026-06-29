@@ -161,5 +161,24 @@ if [ -f "$SECURITY" ]; then
   grep -q 'Execution MUST use declared adapters and capabilities' "$SECURITY" || err "RFC-0800 must require declared adapters/capabilities for execution"
   grep -q 'POLICY_VIOLATION' "$SECURITY" || err "RFC-0800 must map security failures to POLICY_VIOLATION diagnostics"
 fi
+# --- Check 10: RFC-0901 Migration Guide ownership ---
+MIGRATION="$ROOT/docs/1000-enterprise-reference/RFC-0901-Migration-Guide.md"
+if [ -f "$MIGRATION" ]; then
+  for field in '\*\*Status:\*\*' '\*\*Category:\*\*' '\*\*Specification:\*\*' '\*\*Version:\*\*'; do
+    grep -qE "$field" "$MIGRATION" || err "missing header field ${field//\\/} in RFC-0901"
+  done
+
+  for bad in 'Motivation' 'Goals' 'Non-Goals' 'Canonical Model' 'Required Behavior' 'Runtime Flow' 'Validation Rules' 'Error Model' 'Security Considerations' 'Compatibility' 'Future Work'; do
+    grep -qE "^## ([0-9]+\. )?$bad[[:space:]]*$" "$MIGRATION" && err "boilerplate heading '$bad' still in RFC-0901"
+  done
+
+  for required in 'Migration Principles' 'Migration Phases' 'Phase Gate Matrix' 'Safety Boundaries' 'Rollback Guidance' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$MIGRATION" || err "missing RFC-0901 section '$required'"
+  done
+
+  for phrase in 'metadata overlay before restructure' 'validation + dependency gates' 'validation + integrity/security publishing gates'; do
+    grep -q "$phrase" "$MIGRATION" || err "missing RFC-0901 phrase '$phrase'"
+  done
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
