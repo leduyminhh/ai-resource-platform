@@ -6,7 +6,7 @@
 
 ## Pending delegations (forward-ref từ cụm 000-overview)
 > Cross-ref đã trỏ tới các RFC sau (còn boilerplate) — hoàn thiện ở vòng Phase A sau:
-- [ ] RFC-0100 Canonical Resource Model — nhà của Canonical Model, Required Behavior
+- [x] RFC-0100 Canonical Resource Model — nhà của Canonical Model, Required Behavior
 - [ ] RFC-0106 Validation Model — nhà của Validation Rules + Error Model
 - [ ] RFC-0200 Runtime Architecture — nhà của Runtime Flow
 - [ ] RFC-0800 Security Model — nhà của Security Considerations
