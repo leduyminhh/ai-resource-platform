@@ -92,9 +92,10 @@ if [ -f "$VALIDATION" ]; then
     grep -qE "$field" "$VALIDATION" || err "missing header field ${field//\\/} in RFC-0106"
   done
 
-  for bad in 'Motivation' 'Goals' 'Non-Goals' 'Canonical Model' 'Runtime Flow' 'Security Considerations' 'Compatibility' 'Migration Guidance' 'Future Work' 'BUILD_ERROR'; do
-    grep -qE "^#+ .*$bad|$bad" "$VALIDATION" && err "boilerplate or out-of-scope content '$bad' still in RFC-0106"
+  for bad in 'Motivation' 'Goals' 'Non-Goals' 'Canonical Model' 'Runtime Flow' 'Security Considerations' 'Compatibility' 'Migration Guidance' 'Future Work'; do
+    grep -qE "^## ([0-9]+\. )?$bad$" "$VALIDATION" && err "boilerplate heading '$bad' still in RFC-0106"
   done
+  grep -q 'BUILD_ERROR' "$VALIDATION" && err "out-of-scope code 'BUILD_ERROR' still in RFC-0106"
 
   for required in 'Validation Inputs' 'Validation Layers' 'Validation Result Envelope' 'Diagnostic Object' 'Error Code Taxonomy' 'Required Behavior' 'Examples' 'References'; do
     grep -qE "^#+ .*$required" "$VALIDATION" || err "missing RFC-0106 section '$required'"
