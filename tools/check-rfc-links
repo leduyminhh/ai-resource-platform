@@ -273,6 +273,8 @@ if [ -f "$LIFECYCLE" ]; then
   for state in Draft Review Approved Published Deprecated Archived; do
     grep -q "$state" "$LIFECYCLE" || err "missing RFC-0103 lifecycle state '$state'"
   done
+  grep -qE 'Draft (->|→) Review (->|→) Approved (->|→) Published (->|→) Deprecated (->|→) Archived' "$LIFECYCLE" \
+    || err "RFC-0103 must define the ordered lifecycle transition chain"
   grep -q 'RFC-0802' "$LIFECYCLE" || err "RFC-0103 must delegate governance to RFC-0802"
 fi
 
@@ -284,6 +286,8 @@ if [ -f "$MANIFEST" ]; then
   done
   grep -q 'metadata.id' "$MANIFEST" || err "RFC-0105 must reference resources by metadata.id"
   grep -q 'RFC-0100' "$MANIFEST" || err "RFC-0105 must delegate canonical envelope to RFC-0100"
+  grep -q 'RFC-0107' "$MANIFEST" || err "RFC-0105 must delegate package model to RFC-0107"
+  grep -q 'RFC-0402' "$MANIFEST" || err "RFC-0105 must delegate packaging mechanics to RFC-0402"
 fi
 
 if [ -f "$PACKAGING" ]; then
