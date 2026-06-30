@@ -7,123 +7,60 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
 Defines the logical model of immutable packages produced by the platform.
 
-## 2. Motivation
+This RFC owns the logical package model: what a package is, what it contains and how it is identified. Packaging mechanics (compression, signing, verification) are defined by [RFC-0402](../500-build-distribution/RFC-0402-Packaging.md); publishing by [RFC-0403](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md); the artifact relationship by [RFC-0207](../300-runtime/RFC-0207-Artifact-Model.md); signing and integrity by [RFC-0801](../900-security-governance/RFC-0801-Signing-and-Integrity.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 2. Package Concept
 
-## 4. Non-Goals
+A package is an immutable, distributable unit that bundles one or more canonical resources together with a manifest describing its contents.
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+- A package is produced by the build pipeline and is not edited in place.
+- A package is described by a package manifest ([RFC-0105](RFC-0105-Manifest.md)).
 
-## 5. Canonical Model
+## 3. Package Contents
 
-Every platform object SHOULD be represented as a canonical resource:
+- A package MUST contain a package manifest listing the resources it bundles by `metadata.id` and resolved version.
+- A package MAY contain resolved dependency snapshots; lock semantics are owned by [RFC-0401](../500-build-distribution/RFC-0401-Lock-File.md).
+- A package MUST NOT contain plaintext secrets.
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+## 4. Package Identity
 
-## 6. Required Behavior
+- A package is identified by name, version and content checksum.
+- The checksum and signing mechanics are defined by [RFC-0801](../900-security-governance/RFC-0801-Signing-and-Integrity.md).
+- Two packages with the same name and version MUST have identical content (same checksum).
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+## 5. Immutability
 
-## 7. Runtime Flow
+- Packages are immutable once produced; any change MUST produce a new version.
+- Republishing the same name and version with different content MUST be rejected.
+- Compression, signing and verification mechanics are owned by [RFC-0402](../500-build-distribution/RFC-0402-Packaging.md).
 
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
-
-## 8. Validation Rules
-
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+## 6. Examples
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
+package:
+  name: plugins/backend
   version: 1.0.0
-spec: {}
+  checksum: sha256:0d1f...c3
+  contents:
+    - id: plugins/backend
+      version: 1.0.0
+    - id: core/clean-code
+      version: 1.0.0
 ```
 
-## 13. Migration Guidance
+## References
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0105 — Manifest](RFC-0105-Manifest.md)
+- [RFC-0207 — Artifact Model](../300-runtime/RFC-0207-Artifact-Model.md)
+- [RFC-0401 — Lock File](../500-build-distribution/RFC-0401-Lock-File.md)
+- [RFC-0402 — Packaging](../500-build-distribution/RFC-0402-Packaging.md)
+- [RFC-0403 — Registry and Marketplace](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md)
+- [RFC-0801 — Signing and Integrity](../900-security-governance/RFC-0801-Signing-and-Integrity.md)
