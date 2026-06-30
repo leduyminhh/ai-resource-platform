@@ -236,5 +236,65 @@ if [ -f "$DEPENDENCY_GRAPH" ]; then
   grep -q 'Version selection.*RFC-0204\|RFC-0204.*version selection' "$DEPENDENCY_GRAPH" || err "RFC-0104 must delegate version selection to RFC-0204"
   grep -q 'Lock snapshots.*RFC-0401\|RFC-0401.*lock snapshots' "$DEPENDENCY_GRAPH" || err "RFC-0104 must delegate lock snapshots to RFC-0401"
 fi
+# --- Check 12: Resource-model completion (RFC-0101/0102/0103/0105/0107) ---
+SERIALIZATION="$ROOT/docs/200-resource-model/RFC-0101-Serialization.md"
+METADATA="$ROOT/docs/200-resource-model/RFC-0102-Metadata-Model.md"
+LIFECYCLE="$ROOT/docs/200-resource-model/RFC-0103-Resource-Lifecycle.md"
+MANIFEST="$ROOT/docs/200-resource-model/RFC-0105-Manifest.md"
+PACKAGING="$ROOT/docs/200-resource-model/RFC-0107-Packaging-Model.md"
+
+if [ -f "$SERIALIZATION" ]; then
+  check_foundation_header "$SERIALIZATION" "RFC-0101"
+  check_no_foundation_boilerplate "$SERIALIZATION" "RFC-0101"
+  for required in 'Format Policy' 'Encoding' 'Serialization Rules' 'Round-trip' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$SERIALIZATION" || err "missing RFC-0101 section '$required'"
+  done
+  grep -q 'parsed canonical' "$SERIALIZATION" || err "RFC-0101 must require engines operate on parsed canonical objects"
+  grep -q 'YAML and JSON' "$SERIALIZATION" || err "RFC-0101 must define YAML and JSON mappings"
+fi
+
+if [ -f "$METADATA" ]; then
+  check_foundation_header "$METADATA" "RFC-0102"
+  check_no_foundation_boilerplate "$METADATA" "RFC-0102"
+  for required in 'Metadata Fields' 'Identity' 'Discovery and Governance' 'Compatibility Fields' 'Extensibility' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$METADATA" || err "missing RFC-0102 section '$required'"
+  done
+  grep -q 'metadata.id' "$METADATA" || err "RFC-0102 must define metadata.id"
+  grep -q 'RFC-0006' "$METADATA" || err "RFC-0102 must delegate identifier grammar to RFC-0006"
+  grep -q 'RFC-0005' "$METADATA" || err "RFC-0102 must delegate version format to RFC-0005"
+fi
+
+if [ -f "$LIFECYCLE" ]; then
+  check_foundation_header "$LIFECYCLE" "RFC-0103"
+  check_no_foundation_boilerplate "$LIFECYCLE" "RFC-0103"
+  for required in 'Lifecycle States' 'State Transitions' 'Transition Rules' 'Status Field' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$LIFECYCLE" || err "missing RFC-0103 section '$required'"
+  done
+  for state in Draft Review Approved Published Deprecated Archived; do
+    grep -q "$state" "$LIFECYCLE" || err "missing RFC-0103 lifecycle state '$state'"
+  done
+  grep -q 'RFC-0802' "$LIFECYCLE" || err "RFC-0103 must delegate governance to RFC-0802"
+fi
+
+if [ -f "$MANIFEST" ]; then
+  check_foundation_header "$MANIFEST" "RFC-0105"
+  check_no_foundation_boilerplate "$MANIFEST" "RFC-0105"
+  for required in 'Manifest Purpose' 'Resource Manifest' 'Package Manifest' 'Registry Manifest' 'Manifest Rules' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$MANIFEST" || err "missing RFC-0105 section '$required'"
+  done
+  grep -q 'metadata.id' "$MANIFEST" || err "RFC-0105 must reference resources by metadata.id"
+  grep -q 'RFC-0100' "$MANIFEST" || err "RFC-0105 must delegate canonical envelope to RFC-0100"
+fi
+
+if [ -f "$PACKAGING" ]; then
+  check_foundation_header "$PACKAGING" "RFC-0107"
+  check_no_foundation_boilerplate "$PACKAGING" "RFC-0107"
+  for required in 'Package Concept' 'Package Contents' 'Package Identity' 'Immutability' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$PACKAGING" || err "missing RFC-0107 section '$required'"
+  done
+  grep -q 'immutable' "$PACKAGING" || err "RFC-0107 must state packages are immutable"
+  grep -q 'RFC-0402' "$PACKAGING" || err "RFC-0107 must delegate packaging mechanics to RFC-0402"
+  grep -q 'RFC-0801' "$PACKAGING" || err "RFC-0107 must delegate signing/integrity to RFC-0801"
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
