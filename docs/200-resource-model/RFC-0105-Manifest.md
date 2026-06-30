@@ -7,123 +7,79 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
 Defines manifest structure for resources, packages and registries.
 
-## 2. Motivation
+This RFC owns manifest structure: how resources are declared and collected. The canonical resource envelope is defined by [RFC-0100](RFC-0100-Canonical-Resource-Model.md); the logical package model by [RFC-0107](RFC-0107-Packaging-Model.md) and packaging mechanics by [RFC-0402](../500-build-distribution/RFC-0402-Packaging.md); registry mechanics by [RFC-0202](../300-runtime/RFC-0202-Registry-Engine.md) and [RFC-0403](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 2. Manifest Purpose
 
-## 4. Non-Goals
+A manifest declares or collects resources by `metadata.id` and version so tooling can discover, group and distribute them.
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+- A manifest MUST reference resources by `metadata.id`.
+- A manifest MUST NOT redefine the canonical resource envelope (owned by [RFC-0100](RFC-0100-Canonical-Resource-Model.md)).
+- A manifest is itself a canonical resource and follows the envelope rules.
 
-## 5. Canonical Model
+## 3. Resource Manifest
 
-Every platform object SHOULD be represented as a canonical resource:
+A resource manifest lists resources that belong together.
 
 ```yaml
 apiVersion: platform/v1
-kind: ResourceKind
+kind: Manifest
 metadata:
-  id: namespace/name
-  name: name
+  id: core/manifest
+  name: core
   version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
+spec:
+  resources:
+    - id: core/clean-code
+      version: ^1.0.0
 ```
 
-## 6. Required Behavior
+## 4. Package Manifest
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+A package manifest declares the resources contained in a package. The package format and mechanics are owned by [RFC-0107](RFC-0107-Packaging-Model.md) and [RFC-0402](../500-build-distribution/RFC-0402-Packaging.md).
 
-## 7. Runtime Flow
+- A package manifest MUST list contained resources by `metadata.id` and resolved version.
 
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
+## 5. Registry Manifest
 
-## 8. Validation Rules
+A registry manifest declares which packages or resources a registry exposes. Registry mechanics are owned by [RFC-0202](../300-runtime/RFC-0202-Registry-Engine.md) and [RFC-0403](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md).
 
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
+## 6. Manifest Rules
 
-## 9. Error Model
+- Referenced resource IDs MUST be unique within a manifest.
+- A manifest SHOULD declare version ranges for resource references; range resolution is owned by [RFC-0204](../300-runtime/RFC-0204-Dependency-Resolver.md).
+- A manifest MUST NOT embed full resource bodies in place of references unless the format explicitly allows inlining.
 
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+## 7. Examples
 
 ```yaml
 apiVersion: platform/v1
-kind: Example
+kind: Manifest
 metadata:
-  id: example/default
-  name: default
+  id: plugins/backend-manifest
+  name: backend-manifest
   version: 1.0.0
-spec: {}
+spec:
+  resources:
+    - id: plugins/backend
+      version: ^1.0.0
+    - id: core/clean-code
+      version: ^1.0.0
 ```
 
-## 13. Migration Guidance
+## References
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0100 — Canonical Resource Model](RFC-0100-Canonical-Resource-Model.md)
+- [RFC-0107 — Packaging Model](RFC-0107-Packaging-Model.md)
+- [RFC-0202 — Registry Engine](../300-runtime/RFC-0202-Registry-Engine.md)
+- [RFC-0204 — Dependency Resolver](../300-runtime/RFC-0204-Dependency-Resolver.md)
+- [RFC-0402 — Packaging](../500-build-distribution/RFC-0402-Packaging.md)
+- [RFC-0403 — Registry and Marketplace](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md)
