@@ -7,125 +7,74 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
-Defines YAML and JSON as serialization formats for the canonical resource model.
+Defines YAML and JSON as serialization mappings of the canonical resource model.
 
-## 2. Motivation
+This RFC owns serialization format policy, encoding and round-trip rules. The resource envelope and top-level fields are defined by [RFC-0100](RFC-0100-Canonical-Resource-Model.md); metadata field semantics by [RFC-0102](RFC-0102-Metadata-Model.md); validation of serialized documents by [RFC-0106](RFC-0106-Validation-Model.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 2. Format Policy
 
-## 4. Non-Goals
+YAML and JSON are supported serialization mappings of the same canonical object model. The canonical object model is the source of truth; YAML and JSON are interchangeable encodings of it.
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+- A resource MAY be authored in YAML or JSON.
+- Both encodings MUST represent the same canonical object for the same resource.
+- Runtime engines MUST operate on parsed canonical objects, not raw YAML or JSON text.
 
-## 5. Canonical Model
+## 3. Encoding
 
-Every platform object SHOULD be represented as a canonical resource:
+- Serialized documents MUST be UTF-8 encoded.
+- Map keys MUST be strings; map key ordering is not semantically significant.
+- Documents SHOULD NOT rely on encoding-specific escapes that do not survive a round-trip.
+
+## 4. Serialization Rules
+
+- Serialization SHOULD be deterministic: identical canonical objects SHOULD produce byte-identical output under the same serializer settings.
+- Tools SHOULD emit map keys in a stable order to support reproducible diffs and checksums.
+- Empty optional fields SHOULD be omitted rather than serialized as null, unless null is semantically meaningful.
+- Scalar types (string, number, boolean, null) MUST be preserved across YAML and JSON.
+
+## 5. Round-trip
+
+- Parsing a serialized document and re-serializing it MUST preserve the canonical object (round-trip fidelity).
+- Converting YAML to JSON and back MUST preserve the canonical object.
+- A round-trip MUST NOT silently drop unknown fields permitted by the active schema policy.
+
+## 6. Examples
+
+### 6.1 YAML
 
 ```yaml
 apiVersion: platform/v1
-kind: ResourceKind
+kind: Skill
 metadata:
-  id: namespace/name
-  name: name
+  id: core/clean-code
+  name: clean-code
   version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
+spec:
+  dependencies: []
 status:
-  lifecycle: Draft
+  lifecycle: Published
 ```
 
-## 6. Required Behavior
+### 6.2 Equivalent JSON
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
-
-## 7. Runtime Flow
-
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
+```json
+{
+  "apiVersion": "platform/v1",
+  "kind": "Skill",
+  "metadata": { "id": "core/clean-code", "name": "clean-code", "version": "1.0.0" },
+  "spec": { "dependencies": [] },
+  "status": { "lifecycle": "Published" }
+}
 ```
 
-## 8. Validation Rules
+## References
 
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
-
-```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
-```
-
-## 13. Migration Guidance
-
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-## Format Policy
-
-The specification defines the canonical object model. YAML and JSON are supported mappings. Runtime engines MUST operate on parsed canonical objects, not raw YAML or JSON.
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0100 — Canonical Resource Model](RFC-0100-Canonical-Resource-Model.md)
+- [RFC-0102 — Metadata Model](RFC-0102-Metadata-Model.md)
+- [RFC-0106 — Validation Model](RFC-0106-Validation-Model.md)
