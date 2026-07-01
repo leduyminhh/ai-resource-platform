@@ -350,5 +350,67 @@ if [ -f "$RESOLVER" ]; then
   grep -q 'RFC-0401' "$RESOLVER" || err "RFC-0204 must delegate lock format to RFC-0401"
   grep -q 'DEPENDENCY_ERROR' "$RESOLVER" || err "RFC-0204 must surface DEPENDENCY_ERROR on conflicts"
 fi
+# --- Check 14: Runtime build-pipeline (RFC-0205/0206/0207/0208/0209) ---
+PLANNING="$ROOT/docs/300-runtime/RFC-0205-Planning-Engine.md"
+EXECUTION="$ROOT/docs/300-runtime/RFC-0206-Execution-Engine.md"
+ARTIFACT="$ROOT/docs/300-runtime/RFC-0207-Artifact-Model.md"
+CACHING="$ROOT/docs/300-runtime/RFC-0208-Caching-Strategy.md"
+OBSERVABILITY="$ROOT/docs/300-runtime/RFC-0209-Observability.md"
+
+if [ -f "$PLANNING" ]; then
+  check_foundation_header "$PLANNING" "RFC-0205"
+  check_no_foundation_boilerplate "$PLANNING" "RFC-0205"
+  for required in 'Planning Inputs' 'Execution Plan' 'Plan Determinism' 'Parallelism and Cache Reuse' 'Planning Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$PLANNING" || err "missing RFC-0205 section '$required'"
+  done
+  grep -q 'ExecutionPlan' "$PLANNING" || err "RFC-0205 must produce an ExecutionPlan"
+  grep -q 'MUST NOT mutate' "$PLANNING" || err "RFC-0205 must state planning does not mutate sources"
+  grep -q 'RFC-0204' "$PLANNING" || err "RFC-0205 must consume the resolved graph from RFC-0204"
+fi
+
+if [ -f "$EXECUTION" ]; then
+  check_foundation_header "$EXECUTION" "RFC-0206"
+  check_no_foundation_boilerplate "$EXECUTION" "RFC-0206"
+  for required in 'Execution Inputs' 'Adapter Invocation' 'Execution Artifacts' 'Failure Handling' 'Execution Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$EXECUTION" || err "missing RFC-0206 section '$required'"
+  done
+  grep -q 'ExecutionArtifact' "$EXECUTION" || err "RFC-0206 must produce ExecutionArtifact"
+  grep -q 'RFC-0204' "$EXECUTION" || err "RFC-0206 must delegate resolution to RFC-0204"
+  grep -q 'RFC-0500' "$EXECUTION" || err "RFC-0206 must delegate adapter contract to RFC-0500"
+fi
+
+if [ -f "$ARTIFACT" ]; then
+  check_foundation_header "$ARTIFACT" "RFC-0207"
+  check_no_foundation_boilerplate "$ARTIFACT" "RFC-0207"
+  for required in 'Artifact Concept' 'Artifact Identity' 'Immutability' 'Provenance' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$ARTIFACT" || err "missing RFC-0207 section '$required'"
+  done
+  grep -q 'ExecutionArtifact' "$ARTIFACT" || err "RFC-0207 must define ExecutionArtifact"
+  grep -q 'immutable' "$ARTIFACT" || err "RFC-0207 must state artifacts are immutable"
+  grep -q 'RFC-0107' "$ARTIFACT" || err "RFC-0207 must delegate bundling to RFC-0107"
+fi
+
+if [ -f "$CACHING" ]; then
+  check_foundation_header "$CACHING" "RFC-0208"
+  check_no_foundation_boilerplate "$CACHING" "RFC-0208"
+  for required in 'Cache Keys' 'Invalidation' 'Reproducible Builds' 'Caching Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$CACHING" || err "missing RFC-0208 section '$required'"
+  done
+  grep -q 'reproducible' "$CACHING" || err "RFC-0208 must define reproducible builds"
+  grep -q 'invalidation' "$CACHING" || err "RFC-0208 must define cache invalidation"
+  grep -q 'RFC-0101' "$CACHING" || err "RFC-0208 must delegate serialization determinism to RFC-0101"
+fi
+
+if [ -f "$OBSERVABILITY" ]; then
+  check_foundation_header "$OBSERVABILITY" "RFC-0209"
+  check_no_foundation_boilerplate "$OBSERVABILITY" "RFC-0209"
+  for required in 'Signals' 'Logs Metrics Traces' 'Reports' 'Diagnostics vs Validation' 'Observability Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$OBSERVABILITY" || err "missing RFC-0209 section '$required'"
+  done
+  grep -q 'RFC-0106' "$OBSERVABILITY" || err "RFC-0209 must distinguish telemetry from RFC-0106 validation diagnostics"
+  for sig in logs metrics traces; do
+    grep -q "$sig" "$OBSERVABILITY" || err "RFC-0209 must define signal '$sig'"
+  done
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
