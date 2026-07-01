@@ -7,123 +7,49 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
 Defines cache keys, invalidation and reproducible build behavior.
 
-## 2. Motivation
+This RFC owns caching semantics. Serialization determinism is owned by [RFC-0101](../200-resource-model/RFC-0101-Serialization.md); the deterministic-builds principle by [RFC-0002](../000-overview/RFC-0002-Guiding-Principles.md); plans that expose cache keys by [RFC-0205](RFC-0205-Planning-Engine.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 2. Cache Keys
 
-## 4. Non-Goals
+- A cache key MUST be derived from the content and context that determine a step's output (resource content, resolved inputs, adapter identity).
+- Cache keys MUST be reproducible: identical inputs produce identical keys.
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+## 3. Invalidation
 
-## 5. Canonical Model
+- A cache entry MUST be invalidated when any input contributing to its key changes.
+- Cache invalidation MUST be conservative: when in doubt, recompute rather than serve a stale entry.
 
-Every platform object SHOULD be represented as a canonical resource:
+## 4. Reproducible Builds
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+- Reproducible builds: identical inputs MUST yield identical outputs.
+- Reproducibility relies on deterministic serialization ([RFC-0101](../200-resource-model/RFC-0101-Serialization.md)) and the deterministic-builds principle ([RFC-0002](../000-overview/RFC-0002-Guiding-Principles.md)).
 
-## 6. Required Behavior
+## 5. Caching Behavior
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+- Caching MUST NOT change the produced output for identical inputs; it only skips recomputation.
+- A cache hit MUST be equivalent to recomputation.
 
-## 7. Runtime Flow
-
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
-
-## 8. Validation Rules
-
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+## 6. Examples
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
+cache:
+  key: sha256:aa11bb
+  inputs:
+    - core/clean-code@1.0.0:sha256:abc123
+    - adapter: platform/build-adapter@0.1.0
+  state: hit
 ```
 
-## 13. Migration Guidance
+## References
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0002 — Guiding Principles](../000-overview/RFC-0002-Guiding-Principles.md)
+- [RFC-0101 — Serialization](../200-resource-model/RFC-0101-Serialization.md)
+- [RFC-0205 — Planning Engine](RFC-0205-Planning-Engine.md)
