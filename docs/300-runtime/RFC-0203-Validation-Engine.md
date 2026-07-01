@@ -7,123 +7,57 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
 Defines validation execution over individual resources and registries.
 
-## 2. Motivation
+This RFC owns validation execution strategy. The validation model — layers, result envelope and error codes — is owned by [RFC-0106](../200-resource-model/RFC-0106-Validation-Model.md); the runtime pipeline by [RFC-0200](RFC-0200-Runtime-Architecture.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 2. Engine Responsibility
 
-## 4. Non-Goals
+- The engine executes the validation model defined by [RFC-0106](../200-resource-model/RFC-0106-Validation-Model.md).
+- It MUST NOT redefine validation layers, the result envelope, or error codes.
+- It produces a `ValidationResult` using the [RFC-0106](../200-resource-model/RFC-0106-Validation-Model.md) envelope.
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+## 3. Execution Strategy
 
-## 5. Canonical Model
+- The engine owns execution order, short-circuiting and parallelism across layers.
+- The engine MAY validate a single resource or an entire registry (`CanonicalResourceSet`).
+- Validation MUST NOT mutate source resources.
 
-Every platform object SHOULD be represented as a canonical resource:
+## 4. Layer Ordering
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+- Layers run in the order syntax, schema, metadata, semantic, dependency, compatibility, policy unless a layer's required context is unavailable.
+- A layer MAY be skipped only when its required context is absent, producing a diagnostic per [RFC-0106](../200-resource-model/RFC-0106-Validation-Model.md).
 
-## 6. Required Behavior
+## 5. Caching and Incremental
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+- The engine MAY cache layer results keyed by resource content plus context; cache keys MUST be reproducible.
+- Incremental validation MAY re-run only layers whose inputs changed.
+- Caching MUST NOT change the produced `ValidationResult` for identical inputs.
 
-## 7. Runtime Flow
+## 6. Result Handoff
 
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
+- The engine emits a `ValidationResult` consumed by downstream engines.
+- A resource with any `error`-severity diagnostic MUST be treated as invalid downstream.
 
-## 8. Validation Rules
-
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+## 7. Examples
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
+run:
+  target: core/clean-code
+  layers: [syntax, schema, metadata, semantic, dependency]
+  result:
+    valid: true
+    diagnostics: []
 ```
 
-## 13. Migration Guidance
+## References
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0106 — Validation Model](../200-resource-model/RFC-0106-Validation-Model.md)
+- [RFC-0200 — Runtime Architecture](RFC-0200-Runtime-Architecture.md)
+- [RFC-0202 — Registry Engine](RFC-0202-Registry-Engine.md)
