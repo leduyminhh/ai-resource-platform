@@ -7,123 +7,68 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
 Defines the local runtime registry that stores discovered resource metadata and supports lookup by id, kind, version, label and checksum.
 
-## 2. Motivation
+This RFC owns the runtime registry store and lookup. It is distinct from the distribution registry and marketplace owned by [RFC-0403](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md). Metadata field semantics are owned by [RFC-0102](../200-resource-model/RFC-0102-Metadata-Model.md); naming by [RFC-0006](../100-foundation/RFC-0006-Naming-Convention.md); discovery by [RFC-0201](RFC-0201-Discovery-Engine.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 2. Registry Purpose
 
-## 4. Non-Goals
+- The runtime registry is an in-process store of discovered resources that holds the `CanonicalResourceSet` for a run.
+- It enables lookup and cross-resource checks without re-reading sources.
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+## 3. Stored Metadata
 
-## 5. Canonical Model
+| Field | Use |
+|---|---|
+| `id` | Identity in `namespace/name` form. |
+| `kind` | Resource kind. |
+| `version` | Resource version. |
+| `labels` | Selection and grouping. |
+| `checksum` | Content integrity and de-duplication. |
 
-Every platform object SHOULD be represented as a canonical resource:
+`metadata.id` MUST be unique within the registry.
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+## 4. Lookup API
 
-## 6. Required Behavior
+- Lookup MUST support `id`, `kind`, `version`, `label` and `checksum`.
+- Lookup by id returns at most one resource per version.
+- Lookup results MUST be deterministic for identical registry state.
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+## 5. Registry vs Distribution
 
-## 7. Runtime Flow
+- The runtime registry (this RFC) is local and ephemeral to a run.
+- The distribution registry and marketplace — remote, persistent package storage and indexing — are owned by [RFC-0403](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md).
+- These are different concepts and MUST NOT be conflated.
 
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
+## 6. Registry Behavior
 
-## 8. Validation Rules
+- The registry stores discovered resources as a `CanonicalResourceSet`.
+- Registration MUST reject a second resource with the same id and version but a differing checksum (conflict).
+- The registry MUST NOT mutate stored source documents.
 
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+## 7. Examples
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
+lookup:
+  by: id
+  value: core/clean-code
+  result:
+    id: core/clean-code
+    kind: Skill
+    version: 1.0.0
+    checksum: sha256:abc123
 ```
 
-## 13. Migration Guidance
+## References
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0006 — Naming Convention](../100-foundation/RFC-0006-Naming-Convention.md)
+- [RFC-0102 — Metadata Model](../200-resource-model/RFC-0102-Metadata-Model.md)
+- [RFC-0200 — Runtime Architecture](RFC-0200-Runtime-Architecture.md)
+- [RFC-0201 — Discovery Engine](RFC-0201-Discovery-Engine.md)
+- [RFC-0403 — Registry and Marketplace](../500-build-distribution/RFC-0403-Registry-and-Marketplace.md)
