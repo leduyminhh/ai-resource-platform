@@ -300,5 +300,55 @@ if [ -f "$PACKAGING" ]; then
   grep -q 'RFC-0402' "$PACKAGING" || err "RFC-0107 must delegate packaging mechanics to RFC-0402"
   grep -q 'RFC-0801' "$PACKAGING" || err "RFC-0107 must delegate signing/integrity to RFC-0801"
 fi
+# --- Check 13: Runtime read-pipeline (RFC-0201/0202/0203/0204) ---
+DISCOVERY="$ROOT/docs/300-runtime/RFC-0201-Discovery-Engine.md"
+REGISTRY="$ROOT/docs/300-runtime/RFC-0202-Registry-Engine.md"
+VAL_ENGINE="$ROOT/docs/300-runtime/RFC-0203-Validation-Engine.md"
+RESOLVER="$ROOT/docs/300-runtime/RFC-0204-Dependency-Resolver.md"
+
+if [ -f "$DISCOVERY" ]; then
+  check_foundation_header "$DISCOVERY" "RFC-0201"
+  check_no_foundation_boilerplate "$DISCOVERY" "RFC-0201"
+  for required in 'Discovery Sources' 'Resource Candidate' 'Source Precedence' 'Discovery Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$DISCOVERY" || err "missing RFC-0201 section '$required'"
+  done
+  grep -q 'ResourceCandidate' "$DISCOVERY" || err "RFC-0201 must define the ResourceCandidate artifact"
+  grep -q 'MUST NOT mutate' "$DISCOVERY" || err "RFC-0201 must state discovery does not mutate sources"
+fi
+
+if [ -f "$REGISTRY" ]; then
+  check_foundation_header "$REGISTRY" "RFC-0202"
+  check_no_foundation_boilerplate "$REGISTRY" "RFC-0202"
+  for required in 'Registry Purpose' 'Stored Metadata' 'Lookup API' 'Registry vs Distribution' 'Registry Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$REGISTRY" || err "missing RFC-0202 section '$required'"
+  done
+  grep -q 'CanonicalResourceSet' "$REGISTRY" || err "RFC-0202 must hold the CanonicalResourceSet"
+  grep -q 'RFC-0403' "$REGISTRY" || err "RFC-0202 must distinguish the distribution registry RFC-0403"
+  for key in id kind version label checksum; do
+    grep -q "$key" "$REGISTRY" || err "RFC-0202 lookup must support '$key'"
+  done
+fi
+
+if [ -f "$VAL_ENGINE" ]; then
+  check_foundation_header "$VAL_ENGINE" "RFC-0203"
+  check_no_foundation_boilerplate "$VAL_ENGINE" "RFC-0203"
+  for required in 'Engine Responsibility' 'Execution Strategy' 'Layer Ordering' 'Caching and Incremental' 'Result Handoff' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$VAL_ENGINE" || err "missing RFC-0203 section '$required'"
+  done
+  grep -q 'ValidationResult' "$VAL_ENGINE" || err "RFC-0203 must produce a ValidationResult"
+  grep -q 'RFC-0106' "$VAL_ENGINE" || err "RFC-0203 must delegate the validation model to RFC-0106"
+fi
+
+if [ -f "$RESOLVER" ]; then
+  check_foundation_header "$RESOLVER" "RFC-0204"
+  check_no_foundation_boilerplate "$RESOLVER" "RFC-0204"
+  for required in 'Resolution Inputs' 'Version Selection' 'Conflict Handling' 'Lock Generation' 'Resolver Behavior' 'Examples' 'References'; do
+    grep -qE "^#+ .*$required" "$RESOLVER" || err "missing RFC-0204 section '$required'"
+  done
+  grep -q 'DependencyGraph' "$RESOLVER" || err "RFC-0204 must produce a resolved DependencyGraph"
+  grep -q 'RFC-0104' "$RESOLVER" || err "RFC-0204 must delegate graph structure to RFC-0104"
+  grep -q 'RFC-0401' "$RESOLVER" || err "RFC-0204 must delegate lock format to RFC-0401"
+  grep -q 'DEPENDENCY_ERROR' "$RESOLVER" || err "RFC-0204 must surface DEPENDENCY_ERROR on conflicts"
+fi
 [ "$fail" -eq 0 ] && echo "OK: all RFC overview checks passed"
 exit "$fail"
