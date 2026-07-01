@@ -7,123 +7,61 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
-Defines conversion from resolved graph into deterministic execution plan optimized for cache reuse and safe parallelism.
+Defines conversion from a resolved graph into a deterministic execution plan optimized for cache reuse and safe parallelism.
 
-## 2. Motivation
+This RFC owns plan construction and the `ExecutionPlan`. The resolved dependency graph is owned by [RFC-0204](RFC-0204-Dependency-Resolver.md) and [RFC-0104](../200-resource-model/RFC-0104-Dependency-Graph.md); cache-reuse strategy by [RFC-0208](RFC-0208-Caching-Strategy.md); execution by [RFC-0206](RFC-0206-Execution-Engine.md); pipeline orchestration by [RFC-0200](RFC-0200-Runtime-Architecture.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 2. Planning Inputs
 
-## 4. Non-Goals
+- Planning consumes the resolved dependency graph produced by [RFC-0204](RFC-0204-Dependency-Resolver.md).
+- Planning MAY consume user intent (targets, goals) selecting which resources to build.
+- Planning MUST NOT mutate source resource files.
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+## 3. Execution Plan
 
-## 5. Canonical Model
+- Planning produces an `ExecutionPlan`: an ordered set of steps to execute.
+- Each step names the resource, the action and its declared dependencies within the plan.
+- The `ExecutionPlan` is handed to the execution engine ([RFC-0206](RFC-0206-Execution-Engine.md)).
 
-Every platform object SHOULD be represented as a canonical resource:
+## 4. Plan Determinism
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+- The `ExecutionPlan` MUST be deterministic: identical resolved inputs and intent produce an identical plan.
+- Step ordering MUST be stable and derived only from the graph and declared inputs.
 
-## 6. Required Behavior
+## 5. Parallelism and Cache Reuse
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+- The plan MAY mark independent steps as safe to run in parallel.
+- The plan SHOULD expose cache keys so unchanged steps can be skipped; cache-key semantics are owned by [RFC-0208](RFC-0208-Caching-Strategy.md).
 
-## 7. Runtime Flow
+## 6. Planning Behavior
 
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
+- Planning is read-only with respect to source resources.
+- Planning MUST NOT perform dependency resolution; that is owned by [RFC-0204](RFC-0204-Dependency-Resolver.md).
 
-## 8. Validation Rules
-
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+## 7. Examples
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
+plan:
+  steps:
+    - id: core/clean-code
+      action: build
+      dependsOn: []
+      parallelSafe: true
+    - id: plugins/backend
+      action: build
+      dependsOn: [core/clean-code]
 ```
 
-## 13. Migration Guidance
+## References
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0104 — Dependency Graph](../200-resource-model/RFC-0104-Dependency-Graph.md)
+- [RFC-0200 — Runtime Architecture](RFC-0200-Runtime-Architecture.md)
+- [RFC-0204 — Dependency Resolver](RFC-0204-Dependency-Resolver.md)
+- [RFC-0206 — Execution Engine](RFC-0206-Execution-Engine.md)
+- [RFC-0208 — Caching Strategy](RFC-0208-Caching-Strategy.md)
