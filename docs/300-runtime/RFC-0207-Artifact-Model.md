@@ -7,123 +7,52 @@
 
 ---
 
-## 1. Abstract
+## Abstract
 
 Defines immutable outputs produced by execution and packaging.
 
-## 2. Motivation
+This RFC owns the `ExecutionArtifact` model. Artifacts are produced by execution ([RFC-0206](RFC-0206-Execution-Engine.md)); bundling artifacts into packages is owned by [RFC-0107](../200-resource-model/RFC-0107-Packaging-Model.md) and [RFC-0402](../500-build-distribution/RFC-0402-Packaging.md); signing and integrity by [RFC-0801](../900-security-governance/RFC-0801-Signing-and-Integrity.md).
 
-This RFC standardizes a core part of ARPS so multiple implementations can remain interoperable, vendor-neutral and implementation-independent.
+## 1. Conventions
 
-## 3. Goals
+The key words MUST, SHOULD, MAY, MUST NOT and SHOULD NOT are to be interpreted as described in RFC 2119.
 
-- Define a stable contract.
-- Support non-invasive migration.
-- Keep the platform resource-oriented.
-- Preserve deterministic behavior.
-- Allow future extension without changing the core architecture.
+## 2. Artifact Concept
 
-## 4. Non-Goals
+- An `ExecutionArtifact` is an output produced by executing a plan step.
+- An artifact is data plus metadata describing what produced it.
 
-- This RFC does not mandate a specific programming language.
-- This RFC does not depend on a specific AI assistant, IDE or vendor.
-- This RFC does not force restructuring existing business source code.
+## 3. Artifact Identity
 
-## 5. Canonical Model
+- An artifact is identified by a content checksum plus the producing resource id and version.
+- Checksum and signing mechanics are owned by [RFC-0801](../900-security-governance/RFC-0801-Signing-and-Integrity.md).
 
-Every platform object SHOULD be represented as a canonical resource:
+## 4. Immutability
 
-```yaml
-apiVersion: platform/v1
-kind: ResourceKind
-metadata:
-  id: namespace/name
-  name: name
-  version: 1.0.0
-  labels: {}
-  annotations: {}
-spec: {}
-status:
-  lifecycle: Draft
-```
+- An `ExecutionArtifact` is immutable once produced; any change MUST yield a new artifact with a new checksum.
+- Consumers MUST reference artifacts by identity, not by mutable location.
 
-## 6. Required Behavior
+## 5. Provenance
 
-- Implementations MUST parse canonical resources.
-- Implementations MUST validate required fields before resolution.
-- Implementations SHOULD produce deterministic output.
-- Implementations MUST NOT mutate source resources during read-only phases.
+- An artifact MUST record provenance: the plan step, resource id/version and input checksums that produced it.
+- Provenance enables reproducibility checks ([RFC-0208](RFC-0208-Caching-Strategy.md)).
 
-## 7. Runtime Flow
-
-```text
-Repository
-  -> Discovery Engine
-  -> Registry Engine
-  -> Validation Engine
-  -> Dependency Resolver
-  -> Planning Engine
-  -> Execution Engine
-  -> Packaging Engine
-  -> Publishing Engine
-  -> Registry / Marketplace / Consumer
-```
-
-## 8. Validation Rules
-
-- Required fields MUST be present.
-- Resource IDs MUST be unique inside a registry.
-- Versions SHOULD follow Semantic Versioning.
-- Dependency graphs MUST be acyclic.
-- Unknown fields MUST follow the active schema policy.
-
-## 9. Error Model
-
-- `SCHEMA_ERROR`
-- `METADATA_ERROR`
-- `DEPENDENCY_ERROR`
-- `COMPATIBILITY_ERROR`
-- `POLICY_VIOLATION`
-- `BUILD_ERROR`
-
-## 10. Security Considerations
-
-- Remote resources SHOULD be verified before use.
-- Packages SHOULD include checksums.
-- Secrets MUST NOT be stored in plain resource manifests.
-- Registries SHOULD be explicitly trusted.
-
-## 11. Compatibility
-
-- Breaking changes require a new major version.
-- Additive fields are allowed when schema policy permits extension.
-- Implementations SHOULD ignore unknown labels and annotations.
-
-## 12. Example
+## 6. Examples
 
 ```yaml
-apiVersion: platform/v1
-kind: Example
-metadata:
-  id: example/default
-  name: default
-  version: 1.0.0
-spec: {}
+artifact:
+  id: plugins/backend@1.0.0
+  checksum: sha256:def456
+  producedBy:
+    step: plugins/backend
+    inputs:
+      - core/clean-code@1.0.0
 ```
 
-## 13. Migration Guidance
+## References
 
-- Discover existing assets first.
-- Add metadata without moving files.
-- Register resources.
-- Resolve dependencies.
-- Build through adapters only after validation passes.
-
-
-
-## 14. Future Work
-
-- Formal conformance tests.
-- Reference runtime implementation.
-- Registry interoperability suite.
-- Extended JSON Schema and YAML Schema definitions.
+- [RFC-0107 — Packaging Model](../200-resource-model/RFC-0107-Packaging-Model.md)
+- [RFC-0206 — Execution Engine](RFC-0206-Execution-Engine.md)
+- [RFC-0208 — Caching Strategy](RFC-0208-Caching-Strategy.md)
+- [RFC-0402 — Packaging](../500-build-distribution/RFC-0402-Packaging.md)
+- [RFC-0801 — Signing and Integrity](../900-security-governance/RFC-0801-Signing-and-Integrity.md)
